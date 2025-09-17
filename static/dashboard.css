@@ -1,0 +1,7 @@
+
+body { background: #f5f7fa; }
+    .sidebar { min-height: 100vh; background: #222c36; color: #fff; }
+    .sidebar a { color: #fff; text-decoration: none; display: block; padding: 10px 20px; }
+    .sidebar a.active, .sidebar a:hover { background: #1a2027; }
+    .card { border-radius: 12px; }
+    .table thead { background: #f0f2f5; }
