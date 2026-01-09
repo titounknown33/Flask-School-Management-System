@@ -1,7 +1,208 @@
 
-body { background: #f5f7fa; }
-    .sidebar { min-height: 100vh; background: #222c36; color: #fff; }
-    .sidebar a { color: #fff; text-decoration: none; display: block; padding: 10px 20px; }
-    .sidebar a.active, .sidebar a:hover { background: #1a2027; }
-    .card { border-radius: 12px; }
-    .table thead { background: #f0f2f5; }
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600;700&display=swap');
+
+:root {
+    --page-1: #f2f5f9;
+    --page-2: #e7eef6;
+    --ink: #0f172a;
+    --muted: #64748b;
+    --card: #ffffff;
+    --accent: #2ec4b6;
+    --accent-2: #f9c74f;
+    --sidebar-1: #0f2f3a;
+    --sidebar-2: #0b1f2b;
+}
+
+body {
+    background:
+        radial-gradient(900px 400px at 15% 10%, rgba(46, 196, 182, 0.14), transparent 60%),
+        radial-gradient(700px 400px at 85% 15%, rgba(249, 199, 79, 0.2), transparent 60%),
+        linear-gradient(180deg, var(--page-1), var(--page-2));
+    font-family: "Sora", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    color: var(--ink);
+}
+
+.sidebar {
+    min-height: 100vh;
+    background: linear-gradient(180deg, var(--sidebar-1) 0%, var(--sidebar-2) 100%);
+    color: #fff;
+    padding-top: 24px;
+    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.25);
+}
+
+.sidebar .brand {
+    font-weight: 700;
+    font-size: 1.1rem;
+    padding: 0 20px 18px 20px;
+}
+
+.sidebar a {
+    color: rgba(255, 255, 255, 0.92);
+    text-decoration: none;
+    display: block;
+    padding: 12px 20px;
+    border-radius: 12px;
+    margin: 6px 12px;
+    transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.sidebar a.active,
+.sidebar a:hover {
+    background: rgba(249, 199, 79, 0.18);
+    transform: translateX(4px);
+}
+
+.sidebar a.logout,
+.sidebar a.clear-db {
+    margin: 12px 20px 24px 20px;
+    color: #f87171;
+}
+
+.sidebar a.logout:hover,
+.sidebar a.clear-db:hover {
+    color: #fecaca;
+}
+
+.topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    background: transparent;
+}
+
+.topbar .left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.topbar .search {
+    width: 360px;
+}
+
+.topbar .btn-new {
+    background: linear-gradient(90deg, var(--accent), #22a699);
+    color: #0f172a;
+    border: none;
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-weight: 600;
+}
+
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+}
+
+.card {
+    border-radius: 16px;
+    background: var(--card);
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.card .card-body {
+    padding: 20px;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    transition: transform 0.2s ease;
+}
+
+.stat {
+    font-size: 0.9rem;
+    color: var(--muted);
+}
+
+.stat-value {
+    font-size: 1.7rem;
+    font-weight: 700;
+    margin-top: 6px;
+    color: var(--ink);
+}
+
+.chart-placeholder {
+    width: 100%;
+    height: 160px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #9aa6bf;
+}
+
+.donut {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: conic-gradient(var(--accent) 0 72%, #cbd5f5 0 100%);
+    display: inline-block;
+    box-shadow: inset 0 -6px 0 rgba(0, 0, 0, 0.04);
+}
+
+.funnel {
+    height: 120px;
+    background: linear-gradient(90deg, #f9844a, #f3722c);
+    border-radius: 10px;
+}
+
+.controls {
+    display: flex;
+    gap: 12px;
+    align-items: flex-end;
+}
+
+.table-responsive {
+    margin-top: 12px;
+}
+
+.table thead {
+    background: #f8fafc;
+}
+
+.table thead th {
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.table tbody tr:hover {
+    background: rgba(46, 196, 182, 0.08);
+}
+
+.table .form-control {
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+    background: #ffffff;
+    box-shadow: none;
+}
+
+.table .form-control:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 0.18rem rgba(46, 196, 182, 0.2);
+}
+
+.btn-primary {
+    background: linear-gradient(90deg, var(--accent), #22a699);
+    border: none;
+    color: #0f172a;
+    font-weight: 600;
+    border-radius: 10px;
+}
+
+.btn-danger {
+    border-radius: 10px;
+}
+
+@media (max-width: 900px) {
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+    .topbar .search {
+        width: 100%;
+    }
+}
