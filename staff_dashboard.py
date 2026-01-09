@@ -17,7 +17,7 @@ def get_cred_db():
     conn.row_factory = sqlite3.Row
     return conn
 
-@staff_bp.route('/staff-dashboard')
+@staff_bp.route('/staff-dashboard', methods=['GET', 'POST'])
 def staff_dashboard():
     if 'staff_id' not in session:
         return redirect('/staff-login')
@@ -26,14 +26,42 @@ def staff_dashboard():
     # Get teachers from credential.db
     cred_db = get_cred_db()
     teachers = {row['id']: row['username'] for row in cred_db.execute('SELECT id, username FROM teachers')}
+    teacher_list = list(cred_db.execute('SELECT id, username FROM teachers'))
     student_count = len(students)
     class_count = len(set(s['class'] for s in students))
     grade_count = len(set(s['grade'] for s in students))
+
+    selected_teacher = None
+    selected_class = None
+    selected_student = None
+    if request.method == 'POST':
+        selected_teacher = request.form.get('teacher')
+        selected_class = request.form.get('class')
+        selected_student = request.form.get('student_name')
+
+    report_classes = list(db.execute('SELECT DISTINCT class FROM reports'))
+    query = 'SELECT * FROM reports'
+    params = []
+    filters = []
+    if selected_teacher:
+        filters.append('teacher_id=?')
+        params.append(selected_teacher)
+    if selected_class:
+        filters.append('class=?')
+        params.append(selected_class)
+    if selected_student:
+        filters.append('student_name LIKE ?')
+        params.append(f"%{selected_student}%")
+    if filters:
+        query += ' WHERE ' + ' AND '.join(filters)
+    query += ' ORDER BY id DESC'
+    reports = db.execute(query, params).fetchall()
     return render_template_string('''
     <!DOCTYPE html>
     <html lang="en">
     <head>
         <title>Staff Dashboard</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
         <link rel="stylesheet" href="/static/dashboard.css">
     </head>
@@ -41,14 +69,16 @@ def staff_dashboard():
     <div class="container-fluid">
       <div class="row">
         <!-- Sidebar -->
-        <nav class="col-md-2 d-none d-md-block sidebar py-4">
+        <nav class="col-md-2 d-none d-md-flex sidebar py-4 flex-column">
           <div class="text-center mb-4">
             <h4>Staff Panel</h4>
           </div>
           <a href="/staff-dashboard" class="active">Dashboard</a>
           <a href="/staff/register-student">Register Student</a>
           <a href="/staff/manage-payments">Manage Payments</a>
-          <a href="/staff-logout">Logout</a>
+                    <div class="mt-auto">
+            <a href="/staff-logout" class="logout">Logout</a>
+          </div>
         </nav>
         <!-- Main -->
         <main class="col-md-10 ms-sm-auto px-4">
@@ -81,7 +111,7 @@ def staff_dashboard():
             <div class="card-body">
               <h5 class="card-title">Student Data Table</h5>
               <div class="table-responsive">
-                <table class="table align-middle">
+                <table class="table align-middle table-hover">
                   <thead>
                     <tr>
                       <th>Name</th>
@@ -109,8 +139,73 @@ def staff_dashboard():
                         <a href="/staff/edit-student/{{ student['id'] }}" class="btn btn-sm btn-primary">Edit</a>
                       </td>
                       <td>
-                        <a href="/staff/delete-student/{{ student['id'] }}" class="btn btn-sm btn-danger">Delete</a>
+                        <form method="post" action="/staff/delete-student/{{ student['id'] }}" onsubmit="return confirm('Delete this student?');">
+                          <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                        </form>
                       </td>
+                    </tr>
+                  {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div class="card shadow-sm mt-4">
+            <div class="card-body">
+              <h5 class="card-title">Reports Table</h5>
+              <form method="post" class="row g-3 mb-3" data-auto-submit="true">
+                <div class="col-md-4">
+                  <label class="form-label">View Teacher</label>
+                  <select name="teacher" class="form-select">
+                    <option value="">All</option>
+                    {% for t in teacher_list %}
+                      <option value="{{ t['id'] }}" {% if selected_teacher and t['id']|string == selected_teacher|string %}selected{% endif %}>
+                        {{ t['username'] }}
+                      </option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label">View by Class</label>
+                  <select name="class" class="form-select">
+                    <option value="">All</option>
+                    {% for c in report_classes %}
+                      <option value="{{ c['class'] }}" {% if selected_class == c['class'] %}selected{% endif %}>
+                        {{ c['class'] }}
+                      </option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label">Student Name</label>
+                  <input name="student_name" class="form-control" placeholder="Search by name" value="{{ selected_student or '' }}">
+                </div>
+                <div class="col-12">
+                  <button type="submit" class="btn btn-primary">Filter</button>
+                </div>
+              </form>
+              <div class="table-responsive">
+                <table class="table align-middle table-hover">
+                  <thead>
+                    <tr>
+                      <th>Teacher</th>
+                      <th>Class</th>
+                      <th>Grade</th>
+                      <th>Student Name</th>
+                      <th>Score</th>
+                      <th>Comment</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                  {% for row in reports %}
+                    <tr>
+                      <td>{{ teachers.get(row['teacher_id'], 'Unknown') }}</td>
+                      <td>{{ row['class'] }}</td>
+                      <td>{{ row['grade'] }}</td>
+                      <td>{{ row['student_name'] }}</td>
+                      <td>{{ row['student_score'] }}</td>
+                      <td>{{ row['teacher_comment'] }}</td>
                     </tr>
                   {% endfor %}
                   </tbody>
@@ -123,7 +218,30 @@ def staff_dashboard():
     </div>
     </body>
     </html>
-    ''', students=students, student_count=student_count, class_count=class_count, grade_count=grade_count, teachers=teachers)
+    <script>
+      (function () {
+        var forms = document.querySelectorAll('form[data-auto-submit="true"]');
+        forms.forEach(function (form) {
+          var timeoutId;
+          var inputs = form.querySelectorAll('input[type="text"], input[type="search"]');
+          inputs.forEach(function (input) {
+            input.addEventListener('input', function () {
+              clearTimeout(timeoutId);
+              timeoutId = setTimeout(function () {
+                form.submit();
+              }, 400);
+            });
+          });
+          var selects = form.querySelectorAll('select');
+          selects.forEach(function (select) {
+            select.addEventListener('change', function () {
+              form.submit();
+            });
+          });
+        });
+      })();
+    </script>
+    ''', students=students, student_count=student_count, class_count=class_count, grade_count=grade_count, teachers=teachers, reports=reports, report_classes=report_classes, teacher_list=teacher_list, selected_teacher=selected_teacher, selected_class=selected_class, selected_student=selected_student)
 
 @staff_bp.route('/staff/register-student', methods=['GET', 'POST'])
 def register_student():
@@ -152,56 +270,82 @@ def register_student():
     <html lang="en">
     <head>
         <title>Register Student</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-        <link rel="stylesheet" href="/static/addreport.css">
+        <link rel="stylesheet" href="/static/dashboard.css">
     </head>
     <body>
-        <div class="input-container">
-            <div class="input-card">
-                <h2>Register Student</h2>
-                <form method="post">
-                    <div class="mb-3">
-                        <label class="form-label">Class</label>
-                        <input name="class" class="form-control" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Grade</label>
-                        <input name="grade" class="form-control" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Student Name</label>
-                        <input name="name" class="form-control" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Gender</label>
-                        <select name="gender" class="form-control" required>
-                            <option value="">Select</option>
-                            <option value="Male">Male</option>
-                            <option value="Female">Female</option>
-                            <option value="Other">Other</option>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Teacher</label>
-                        <select name="teacher_id" class="form-control" required>
-                          {% for t in teachers %}
-                            <option value="{{ t['id'] }}">{{ t['username'] }}</option>
-                          {% endfor %}
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Date of Birth</label>
-                        <input name="dob" type="date" class="form-control" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Emergency Contact</label>
-                        <input name="emergency_contact" type="text" class="form-control" required>
-                    </div>
-                    <button type="submit" class="btn btn-primary w-100">Register</button>
-                </form>
-                <a href="/staff-dashboard" class="back-link">Back to Dashboard</a>
+    <div class="container-fluid">
+      <div class="row">
+        <!-- Sidebar -->
+        <nav class="col-md-2 d-none d-md-flex sidebar py-4 flex-column">
+          <div class="text-center mb-4">
+            <h4>Staff Panel</h4>
+          </div>
+          <a href="/staff-dashboard">Dashboard</a>
+          <a href="/staff/register-student" class="active">Register Student</a>
+          <a href="/staff/manage-payments">Manage Payments</a>
+                    <div class="mt-auto">
+            <a href="/staff-logout" class="logout">Logout</a>
+          </div>
+        </nav>
+        <!-- Main -->
+        <main class="col-md-10 ms-sm-auto px-4">
+          <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+            <h2>Register Student</h2>
+          </div>
+          <div class="card shadow-sm">
+            <div class="card-body">
+              <form method="post">
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label">Class</label>
+                    <input name="class" class="form-control" placeholder="e.g., 5A" required>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Grade</label>
+                    <input name="grade" class="form-control" placeholder="e.g., Grade 5" required>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Student Name</label>
+                    <input name="name" class="form-control" placeholder="Student full name" required>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Gender</label>
+                    <select name="gender" class="form-control" required>
+                      <option value="">Select</option>
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Teacher</label>
+                    <select name="teacher_id" class="form-control" required>
+                      {% for t in teachers %}
+                        <option value="{{ t['id'] }}">{{ t['username'] }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Date of Birth</label>
+                    <input name="dob" type="date" class="form-control" required>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Emergency Contact</label>
+                    <input name="emergency_contact" type="text" class="form-control" placeholder="Phone number" required>
+                  </div>
+                  <div class="col-12 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">Register</button>
+                    <a href="/staff-dashboard" class="btn btn-light">Back</a>
+                  </div>
+                </div>
+              </form>
             </div>
-        </div>
+          </div>
+        </main>
+      </div>
+    </div>
     </body>
     </html>
     ''', teachers=teachers)
@@ -238,6 +382,7 @@ def manage_payments():
     <html lang="en">
     <head>
         <title>Manage Payments</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
         <link rel="stylesheet" href="/static/dashboard.css">
     </head>
@@ -245,14 +390,16 @@ def manage_payments():
     <div class="container-fluid">
       <div class="row">
         <!-- Sidebar -->
-        <nav class="col-md-2 d-none d-md-block sidebar py-4">
+        <nav class="col-md-2 d-none d-md-flex sidebar py-4 flex-column">
           <div class="text-center mb-4">
             <h4>Staff Panel</h4>
           </div>
           <a href="/staff-dashboard">Dashboard</a>
           <a href="/staff/register-student">Register Student</a>
           <a href="/staff/manage-payments" class="active">Manage Payments</a>
-          <a href="/staff-logout">Logout</a>
+                    <div class="mt-auto">
+            <a href="/staff-logout" class="logout">Logout</a>
+          </div>
         </nav>
         <!-- Main -->
         <main class="col-md-10 ms-sm-auto px-4">
@@ -262,7 +409,7 @@ def manage_payments():
           <div class="card shadow-sm">
             <div class="card-body">
               <div class="table-responsive">
-                <table class="table align-middle">
+                <table class="table align-middle table-hover">
                   <thead>
                     <tr>
                       <th>Student Name</th>
@@ -338,6 +485,17 @@ def manage_payments():
     </html>
     ''', students=students, payments=payments)
 
+@staff_bp.route('/staff/delete-student/<int:student_id>', methods=['POST'])
+def delete_student(student_id):
+    if 'staff_id' not in session:
+        return redirect('/staff-login')
+    db = get_db()
+    db.execute('DELETE FROM payments WHERE student_id=?', (student_id,))
+    db.execute('DELETE FROM invoices WHERE student_id=?', (student_id,))
+    db.execute('DELETE FROM students WHERE id=?', (student_id,))
+    db.commit()
+    return redirect('/staff-dashboard')
+
 @staff_bp.route('/staff/print-invoice/<int:student_id>')
 def print_invoice(student_id):
     if 'staff_id' not in session:
@@ -364,6 +522,7 @@ def print_invoice(student_id):
         <html lang="en">
         <head>
             <title>Invoice</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1">
             <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
             <style>
                 body { font-family: 'Khmer OS', Arial, sans-serif; }

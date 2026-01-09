@@ -1,14 +1,22 @@
 import sqlite3
 import tkinter as tk
 from tkinter import messagebox
+from werkzeug.security import generate_password_hash
 
 def add_user(table, username, password, gender=None):
     conn = sqlite3.connect('credential.db')
     cur = conn.cursor()
+    password_hash = generate_password_hash(password)
     if table in ['teachers', 'staffs']:
-        cur.execute(f"INSERT INTO {table} (username, password, gender) VALUES (?, ?, ?)", (username, password, gender))
+        cur.execute(
+            f"INSERT INTO {table} (username, password, gender) VALUES (?, ?, ?)",
+            (username, password_hash, gender)
+        )
     else:
-        cur.execute(f"INSERT INTO {table} (username, password) VALUES (?, ?)", (username, password))
+        cur.execute(
+            f"INSERT INTO {table} (username, password) VALUES (?, ?)",
+            (username, password_hash)
+        )
     conn.commit()
     conn.close()
 

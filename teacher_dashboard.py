@@ -22,6 +22,10 @@ def teacher_dashboard():
         return redirect('/')
     db = get_db()
     students = db.execute('SELECT * FROM students WHERE teacher_id=?', (session['teacher_id'],)).fetchall()
+    reports = db.execute(
+        'SELECT * FROM reports WHERE teacher_id=? ORDER BY id DESC',
+        (session['teacher_id'],)
+    ).fetchall()
 
     # Stats for cards
     class_count = len(set(row["class"] for row in students))
@@ -29,14 +33,15 @@ def teacher_dashboard():
     grade_count = len(set(row["grade"] for row in students))
 
     cred_db = get_cred_db()
-    teacher = cred_db.execute('SELECT username FROM teachers WHERE id=?', (session['teacher_id'],)).fetchone()
-    teacher_name = teacher['username'] if teacher else 'Unknown'
+    teachers = cred_db.execute('SELECT username FROM teachers WHERE id=?', (session['teacher_id'],)).fetchone()
+    teachers_name = teachers['username'] if teachers else 'Unknown'
 
     html = '''
     <!DOCTYPE html>
     <html lang="en">
     <head>
         <title>Teacher Dashboard</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
         <link rel="stylesheet" href="/static/dashboard.css">
     </head>
@@ -44,14 +49,16 @@ def teacher_dashboard():
     <div class="container-fluid">
       <div class="row">
         <!-- Sidebar -->
-        <nav class="col-md-2 d-none d-md-block sidebar py-4">
+        <nav class="col-md-2 d-none d-md-flex sidebar py-4 flex-column">
           <div class="text-center mb-4">
   <h4>Teacher Panel</h4>
-  <p>Welcome, {{ teacher_name }}</p>
+    <p>Welcome, {teachers_name}</p>
 </div>
           <a href="/teacher-dashboard" class="active">Dashboard</a>
           <a href="/input">Add New Report</a>
-          <a href="/teacher-logout">Logout</a>
+                    <div class="mt-auto">
+            <a href="/teacher-logout" class="logout">Logout</a>
+          </div>
         </nav>
         <!-- Main -->
         <main class="col-md-10 ms-sm-auto px-4">
@@ -79,12 +86,12 @@ def teacher_dashboard():
               </div>
             </div>
           </div>
-          <!-- Data Table -->
+          <!-- Students Table -->
           <div class="card shadow-sm">
             <div class="card-body">
               <h5 class="card-title">Student Data Table</h5>
               <div class="table-responsive">
-                <table class="table align-middle">
+                <table class="table align-middle table-hover">
                   <thead>
                     <tr>
                       <th>Name</th>
@@ -108,13 +115,48 @@ def teacher_dashboard():
               </div>
             </div>
           </div>
+          <!-- Reports Table -->
+          <div class="card shadow-sm mt-4">
+            <div class="card-body">
+              <h5 class="card-title">My Reports</h5>
+              <div class="table-responsive">
+                <table class="table align-middle table-hover">
+                  <thead>
+                    <tr>
+                      <th>Student</th>
+                      <th>Class</th>
+                      <th>Grade</th>
+                      <th>Score</th>
+                      <th>Comment</th>
+                      <th>Edit</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+    '''
+    for row in reports:
+        html += (
+            f"<tr>"
+            f"<td>{row['student_name']}</td>"
+            f"<td>{row['class']}</td>"
+            f"<td>{row['grade']}</td>"
+            f"<td>{row['student_score']}</td>"
+            f"<td>{row['teacher_comment']}</td>"
+            f"<td><a href=\"/edit-report/{row['id']}\" class=\"btn btn-sm btn-outline-primary\">Edit</a></td>"
+            f"</tr>"
+        )
+    html += '''
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
         </main>
       </div>
     </div>
     </body>
     </html>
     '''
-    return html.format(student_count=student_count, class_count=class_count, grade_count=grade_count)
+    return html.format(teachers_name = teachers_name, student_count=student_count, class_count=class_count, grade_count=grade_count)
 
 @teacher_bp.route('/edit-report/<int:report_id>', methods=['GET', 'POST'])
 def edit_report(report_id):
@@ -140,6 +182,7 @@ def edit_report(report_id):
     <html lang="en">
     <head>
         <title>Edit Report</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
         <link rel="stylesheet" href="/static/editreport.css">
     </head>
@@ -205,41 +248,64 @@ def input_report():
     <html lang="en">
     <head>
         <title>Add New Report</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-        <link rel="stylesheet" href="/static/addreport.css">
+        <link rel="stylesheet" href="/static/dashboard.css">
     </head>
     <body>
-        <div class="input-container">
-            <div class="input-card">
-                <h2>Add New Report</h2>
-                <form method="post">
-                    <div class="mb-3">
-                        <label class="form-label">Class</label>
-                        <input name="class" class="form-control" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Grade</label>
-                        <input name="grade" class="form-control" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Student Name</label>
-                        <input name="student_name" class="form-control" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Student Score</label>
-                        <input name="student_score" type="number" class="form-control" required min="0" max="100">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Teacher Comment</label>
-                        <input name="teacher_comment" class="form-control" required>
-                    </div>
-                    <button type="submit" class="btn btn-primary w-100">Add Report</button>
-                </form>
-                <div class="text-center mt-3">
-                    <a href="/teacher-dashboard">Back to Dashboard</a>
+    <div class="container-fluid">
+      <div class="row">
+        <!-- Sidebar -->
+        <nav class="col-md-2 d-none d-md-flex sidebar py-4 flex-column">
+          <div class="text-center mb-4">
+            <h4>Teacher Panel</h4>
+          </div>
+          <a href="/teacher-dashboard">Dashboard</a>
+          <a href="/input" class="active">Add New Report</a>
+                    <div class="mt-auto">
+            <a href="/teacher-logout" class="logout">Logout</a>
+          </div>
+        </nav>
+        <!-- Main -->
+        <main class="col-md-10 ms-sm-auto px-4">
+          <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+            <h2>Add New Report</h2>
+          </div>
+          <div class="card shadow-sm">
+            <div class="card-body">
+              <form method="post">
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label">Class</label>
+                    <input name="class" class="form-control" placeholder="e.g., 5A" required>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Grade</label>
+                    <input name="grade" class="form-control" placeholder="e.g., Grade 5" required>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Student Name</label>
+                    <input name="student_name" class="form-control" placeholder="Student full name" required>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Student Score</label>
+                    <input name="student_score" type="number" class="form-control" placeholder="0-100" required min="0" max="100">
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label">Teacher Comment</label>
+                    <input name="teacher_comment" class="form-control" placeholder="Short feedback for the student" required>
+                  </div>
+                  <div class="col-12 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">Add Report</button>
+                    <a href="/teacher-dashboard" class="btn btn-light">Back</a>
+                  </div>
                 </div>
+              </form>
             </div>
-        </div>
+          </div>
+        </main>
+      </div>
+    </div>
     </body>
     </html>
     '''

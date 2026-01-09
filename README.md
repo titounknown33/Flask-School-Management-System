@@ -19,7 +19,7 @@ This repository contains Python scripts and resources for managing school and st
 
 1. **Clone the repository**
    ```powershell
-   git clone https://github.com/titounknown33/Flask-School-Management-System.git
+   git clone <repo-url>
    ```
 2. **Install dependencies**
    ```powershell
@@ -38,4 +38,3 @@ This repository contains Python scripts and resources for managing school and st
 
 ## License
 This project is licensed under the MIT License.
-
